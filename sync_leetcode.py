@@ -15,7 +15,7 @@ import requests
 from dotenv import load_dotenv
 
 try:
-    import google.generativeai as genai
+    from google import genai
     HAS_GENAI = True
 except ImportError:
     HAS_GENAI = False
@@ -140,6 +140,10 @@ def fetch_submission_code(submission_id: str) -> str | None:
 
 
 # ── AI Analysis ────────────────────────────────────────────────────────────────
+MAX_RETRIES = 3
+RETRY_DELAY = 60  # seconds
+
+
 def analyze_with_gemini(
     title: str,
     difficulty: str,
@@ -157,11 +161,9 @@ def analyze_with_gemini(
     if not HAS_GENAI or not GEMINI_API_KEY:
         return None
 
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-2.0-flash")
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
-        prompt = f"""You are a DSA (Data Structures & Algorithms) expert.
+    prompt = f"""You are a DSA (Data Structures & Algorithms) expert.
 
 I will give you a LeetCode problem and a user's accepted solution. Respond with ONLY a JSON object (no markdown fences, no extra text) with these exact keys:
 
@@ -178,30 +180,42 @@ User's code ({lang}):
 {code}
 """
 
-        response = model.generate_content(prompt)
-        raw = response.text.strip()
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+            )
+            raw = response.text.strip()
 
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            raw = re.sub(r"^```(?:json)?\s*", "", raw)
-            raw = re.sub(r"\s*```$", "", raw)
+            # Strip markdown code fences if present
+            if raw.startswith("```"):
+                raw = re.sub(r"^```(?:json)?\s*", "", raw)
+                raw = re.sub(r"\s*```$", "", raw)
 
-        result = json.loads(raw)
+            result = json.loads(raw)
 
-        # Validate expected keys
-        required = [
-            "most_efficient_approach", "my_approach",
-            "time_complexity", "space_complexity", "complexity_explanation",
-        ]
-        if all(k in result for k in required):
-            return result
+            # Validate expected keys
+            required = [
+                "most_efficient_approach", "my_approach",
+                "time_complexity", "space_complexity", "complexity_explanation",
+            ]
+            if all(k in result for k in required):
+                return result
 
-        print("  ⚠  Gemini returned incomplete JSON, using placeholders.")
-        return None
+            print("  ⚠  Gemini returned incomplete JSON, using placeholders.")
+            return None
 
-    except Exception as exc:  # noqa: BLE001
-        print(f"  ⚠  Gemini analysis failed ({exc}), using placeholders.")
-        return None
+        except Exception as exc:  # noqa: BLE001
+            err_str = str(exc)
+            if "429" in err_str and attempt < MAX_RETRIES:
+                print(f"  ⏳ Rate limited, retrying in {RETRY_DELAY}s (attempt {attempt}/{MAX_RETRIES})...")
+                time.sleep(RETRY_DELAY)
+                continue
+            print(f"  ⚠  Gemini analysis failed ({exc}), using placeholders.")
+            return None
+
+    return None
 
 
 # ── README Generation ──────────────────────────────────────────────────────────
@@ -384,6 +398,8 @@ def git_push():
         ["git", "commit", "-m", "sync: update LeetCode solutions"],
         check=True,
     )
+    # Pull remote changes first, then push
+    subprocess.run(["git", "pull", "--rebase"], check=True)
     subprocess.run(["git", "push"], check=True)
     print("Changes pushed to GitHub.")
 
