@@ -4,6 +4,7 @@ LeetCode → GitHub Sync
 Fetches accepted LeetCode submissions and commits them to this repository.
 """
 
+import json
 import os
 import re
 import subprocess
@@ -13,6 +14,12 @@ import html
 import requests
 from dotenv import load_dotenv
 
+try:
+    import google.generativeai as genai
+    HAS_GENAI = True
+except ImportError:
+    HAS_GENAI = False
+
 load_dotenv()
 
 # ── Configuration ──────────────────────────────────────────────────────────────
@@ -21,6 +28,7 @@ LEETCODE_SESSION = os.getenv("LEETCODE_SESSION", "")
 LEETCODE_CSRF_TOKEN = os.getenv("LEETCODE_CSRF_TOKEN", "")
 _limit = os.getenv("LEETCODE_FETCH_LIMIT", "").strip()
 FETCH_LIMIT = int(_limit) if _limit else 50
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 GRAPHQL_URL = "https://leetcode.com/graphql"
 BASE_URL = "https://leetcode.com"
@@ -131,6 +139,71 @@ def fetch_submission_code(submission_id: str) -> str | None:
     return details.get("code") if details else None
 
 
+# ── AI Analysis ────────────────────────────────────────────────────────────────
+def analyze_with_gemini(
+    title: str,
+    difficulty: str,
+    description: str,
+    code: str,
+    lang: str,
+) -> dict | None:
+    """Use Gemini AI to analyze the problem and the user's code.
+
+    Returns a dict with keys:
+        most_efficient_approach, my_approach,
+        time_complexity, space_complexity, complexity_explanation
+    or None on failure.
+    """
+    if not HAS_GENAI or not GEMINI_API_KEY:
+        return None
+
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-2.0-flash")
+
+        prompt = f"""You are a DSA (Data Structures & Algorithms) expert.
+
+I will give you a LeetCode problem and a user's accepted solution. Respond with ONLY a JSON object (no markdown fences, no extra text) with these exact keys:
+
+1. "most_efficient_approach": A simple, plain-English, step-by-step algorithm for the MOST OPTIMAL known solution to this problem. Number each step. Keep it concise (4-8 steps).
+2. "my_approach": A simple, plain-English, step-by-step algorithm describing what the USER's code below actually does. Number each step. Keep it concise (4-8 steps).
+3. "time_complexity": The Big-O time complexity of the USER's code (e.g. "O(n)", "O(n log n)").
+4. "space_complexity": The Big-O space complexity of the USER's code (e.g. "O(1)", "O(n)").
+5. "complexity_explanation": One or two sentences explaining why the time and space complexities are what they are.
+
+Problem: {title} ({difficulty})
+Description: {strip_html(description)[:1500]}
+
+User's code ({lang}):
+{code}
+"""
+
+        response = model.generate_content(prompt)
+        raw = response.text.strip()
+
+        # Strip markdown code fences if present
+        if raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = re.sub(r"\s*```$", "", raw)
+
+        result = json.loads(raw)
+
+        # Validate expected keys
+        required = [
+            "most_efficient_approach", "my_approach",
+            "time_complexity", "space_complexity", "complexity_explanation",
+        ]
+        if all(k in result for k in required):
+            return result
+
+        print("  ⚠  Gemini returned incomplete JSON, using placeholders.")
+        return None
+
+    except Exception as exc:  # noqa: BLE001
+        print(f"  ⚠  Gemini analysis failed ({exc}), using placeholders.")
+        return None
+
+
 # ── README Generation ──────────────────────────────────────────────────────────
 def build_readme(
     problem_id: str,
@@ -139,10 +212,25 @@ def build_readme(
     description: str,
     code: str,
     lang: str,
+    analysis: dict | None = None,
 ) -> str:
     """Generate the README.md content for a problem folder."""
     ext = LANG_EXT_MAP.get(lang, lang)
     summary = truncate(strip_html(description))
+
+    # Fallback values
+    most_efficient = "*(empty placeholder)*"
+    my_approach = "*(empty placeholder)*"
+    time_comp = "O(...)"
+    space_comp = "O(...)"
+    comp_explanation = "*(short explanation placeholder)*"
+
+    if analysis:
+        most_efficient = analysis.get("most_efficient_approach", most_efficient)
+        my_approach = analysis.get("my_approach", my_approach)
+        time_comp = analysis.get("time_complexity", time_comp)
+        space_comp = analysis.get("space_complexity", space_comp)
+        comp_explanation = analysis.get("complexity_explanation", comp_explanation)
 
     return f"""# {problem_id}. {title}
 
@@ -160,11 +248,11 @@ def build_readme(
 
 ### Most Efficient Approach
 
-*(empty placeholder)*
+{most_efficient}
 
 ### My Approach
 
-*(empty placeholder)*
+{my_approach}
 
 ---
 
@@ -172,18 +260,10 @@ def build_readme(
 
 | Metric | Value |
 |--------|-------|
-| Time   | O(...) |
-| Space  | O(...) |
+| Time   | {time_comp} |
+| Space  | {space_comp} |
 
-*(short explanation placeholder)*
-
----
-
-## Edge Cases Considered
-
-- empty input
-- duplicates
-- large input
+{comp_explanation}
 
 ---
 
@@ -271,7 +351,12 @@ def sync():
         with open(solution_path, "w", encoding="utf-8") as f:
             f.write(code + "\n")
 
-        readme_content = build_readme(problem_id, title, difficulty, description, code, lang)
+        # AI analysis (graceful fallback to placeholders)
+        analysis = analyze_with_gemini(title, difficulty, description, code, lang)
+        if analysis:
+            print(f"  🤖 AI analysis complete for [{problem_id}] {title}")
+
+        readme_content = build_readme(problem_id, title, difficulty, description, code, lang, analysis)
         with open(readme_path, "w", encoding="utf-8") as f:
             f.write(readme_content)
 
