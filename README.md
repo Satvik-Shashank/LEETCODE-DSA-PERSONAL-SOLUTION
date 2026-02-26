@@ -2,7 +2,7 @@
 
 Automatically syncs your accepted LeetCode submissions into this GitHub repository — organized with solution files and rich README docs per problem.
 
-**Zero cost. Runs entirely on GitHub Actions.**
+
 
 ---
 
