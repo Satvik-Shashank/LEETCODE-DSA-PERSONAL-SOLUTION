@@ -19,7 +19,8 @@ load_dotenv()
 LEETCODE_USERNAME = os.getenv("LEETCODE_USERNAME", "")
 LEETCODE_SESSION = os.getenv("LEETCODE_SESSION", "")
 LEETCODE_CSRF_TOKEN = os.getenv("LEETCODE_CSRF_TOKEN", "")
-FETCH_LIMIT = int(os.getenv("LEETCODE_FETCH_LIMIT", "50"))
+_limit = os.getenv("LEETCODE_FETCH_LIMIT", "").strip()
+FETCH_LIMIT = int(_limit) if _limit else 50
 
 GRAPHQL_URL = "https://leetcode.com/graphql"
 BASE_URL = "https://leetcode.com"

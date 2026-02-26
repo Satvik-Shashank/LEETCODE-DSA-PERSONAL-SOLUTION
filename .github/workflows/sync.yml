@@ -33,5 +33,4 @@ jobs:
           LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
           LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
           LEETCODE_CSRF_TOKEN: ${{ secrets.LEETCODE_CSRF_TOKEN }}
-          LEETCODE_FETCH_LIMIT: ${{ secrets.LEETCODE_FETCH_LIMIT }}
         run: python sync_leetcode.py
