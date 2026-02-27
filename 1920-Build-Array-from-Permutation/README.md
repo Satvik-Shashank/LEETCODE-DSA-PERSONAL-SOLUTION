@@ -34,7 +34,8 @@ ans = [nums[nums[0]], nums[nums[1]], nums[nums[2]], nums[nums[3]], nums[nums[4]]
 
 ### My Approach
 
-1. Return the final result.
+1. Use a list comprehension to build the result in a single pass.
+2. Return the final result.
 
 ---
 
@@ -42,10 +43,10 @@ ans = [nums[nums[0]], nums[nums[1]], nums[nums[2]], nums[nums[3]], nums[nums[4]]
 
 | Metric | Value |
 |--------|-------|
-| Time   | O(1) |
+| Time   | O(n) |
 | Space  | O(1) |
 
-Constant-time operations with no loops. No significant extra space is used.
+Single pass through the input. No significant extra space is used.
 
 ---
 

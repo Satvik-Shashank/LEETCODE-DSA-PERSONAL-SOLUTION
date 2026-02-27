@@ -427,13 +427,19 @@ def _analyze_my_approach(code: str, lang: str) -> str:
     # Detect operations
     if re.search(r"\bsorted\b|\.\.sort\b", code):
         steps.append("Sort the input data.")
-    if re.search(r"for .+ in .+:", code):
+    # Detect list comprehensions as iteration
+    has_comprehension = bool(re.search(r"\[.+\bfor\b.+\bin\b.+\]", code))
+    has_for_loop = bool(re.search(r"for .+ in .+:", code))
+    has_while = bool(re.search(r"while ", code))
+    if has_for_loop:
         loop_count = len(re.findall(r"for .+ in .+:", code))
         if loop_count >= 2 and re.search(r"for .+ in .+:.*\n\s+for .+ in .+:", code, re.DOTALL):
             steps.append("Use nested loops to compare/process element pairs.")
         else:
             steps.append(f"Iterate through the input ({loop_count} loop{'s' if loop_count > 1 else ''}).")
-    elif re.search(r"while ", code):
+    elif has_comprehension:
+        steps.append("Use a list comprehension to build the result in a single pass.")
+    elif has_while:
         steps.append("Use a while loop to traverse/process the data.")
     if re.search(r"\bif\b.*\breturn\b|\bif\b.*\bbreak\b", code):
         steps.append("Check conditions to find the answer or terminate early.")
@@ -450,10 +456,11 @@ def _analyze_my_approach(code: str, lang: str) -> str:
 
 def _estimate_complexity(code: str) -> tuple[str, str, str]:
     """Heuristic complexity estimation based on code structure."""
-    # Count loop nesting depth
+    # Count loop nesting depth (includes list comprehensions)
     lines = code.split("\n")
     max_loop_depth = 0
     current_depth = 0
+    has_comprehension = bool(re.search(r"\[.+\bfor\b.+\bin\b.+\]", code))
     for line in lines:
         stripped = line.strip()
         if re.match(r"(for |while )", stripped):
@@ -464,6 +471,9 @@ def _estimate_complexity(code: str) -> tuple[str, str, str]:
             indent = len(line) - len(line.lstrip())
             if indent == 0:
                 current_depth = 0
+    # List comprehensions count as at least 1 loop
+    if has_comprehension and max_loop_depth == 0:
+        max_loop_depth = 1
 
     # Detect sorting
     has_sort = bool(re.search(r"\bsorted\b|\.\.sort\b", code))
