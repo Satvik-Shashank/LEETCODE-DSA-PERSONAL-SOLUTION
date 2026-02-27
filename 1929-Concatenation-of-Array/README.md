@@ -32,11 +32,16 @@ Output: ...
 
 ### Most Efficient Approach
 
-*(empty placeholder)*
+**Pattern: Array Concat**
+
+1. Create a new result array of the required size.
+2. Copy elements from the source array into the result.
+3. Repeat or mirror the copy as needed to fill the result.
+4. Return the constructed array.
 
 ### My Approach
 
-*(empty placeholder)*
+1. Return the final result.
 
 ---
 
@@ -44,10 +49,10 @@ Output: ...
 
 | Metric | Value |
 |--------|-------|
-| Time   | O(...) |
-| Space  | O(...) |
+| Time   | O(1) |
+| Space  | O(1) |
 
-*(short explanation placeholder)*
+Constant-time operations with no loops. No significant extra space is used.
 
 ---
 
