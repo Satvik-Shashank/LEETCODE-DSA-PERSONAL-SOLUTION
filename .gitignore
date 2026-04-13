@@ -1,0 +1,67 @@
+# ─── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Java ─────────────────────────────────────────────────
+*.class
+*.jar
+*.war
+*.ear
+target/
+.classpath
+.project
+.settings/
+
+# ─── C / C++ ──────────────────────────────────────────────
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+
+# ─── IDEs & Editors ───────────────────────────────────────
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── Windows ──────────────────────────────────────────────
+desktop.ini
+$RECYCLE.BIN/
+
+# ─── macOS ────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ─── Logs & misc ──────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+*.orig
+*.rej
